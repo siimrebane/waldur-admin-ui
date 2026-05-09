@@ -58,6 +58,13 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // Advanced options
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Default ON — the platform's fixed provider is the assumed runtime, so
+  // data-source-style URL resolution is the cleaner default. Legacy
+  // hardcoded-URL output remains available via the toggle below for the
+  // rare case someone runs against an unfixed upstream provider.
+  const [useDataSourceLookups, setUseDataSourceLookups] = useState(true);
 
   // Fetch security groups for every selected tenant in parallel.
   const sgQueries = useQueries({
@@ -146,6 +153,7 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
           volume_size: volumeSize * 1024, // GB → MiB for terraform
           tenant_uuids: Array.from(selectedTenants).join(","),
           security_group_names: Array.from(selectedSgNames).join(","),
+          use_data_source_lookups: useDataSourceLookups ? "1" : "0",
         },
       });
       setPreview(data);
@@ -314,6 +322,44 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
           </div>
         </div>
 
+        {/* Advanced options — collapsible */}
+        <div style={{ ...styles.section, marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((o) => !o)}
+            style={styles.disclosure}
+          >
+            <span style={{ marginRight: 6 }}>{advancedOpen ? "▾" : "▸"}</span>
+            Advanced options
+          </button>
+          {advancedOpen && (
+            <div style={styles.advancedBody}>
+              <label style={styles.advancedItem}>
+                <input
+                  type="checkbox"
+                  checked={useDataSourceLookups}
+                  onChange={(e) => setUseDataSourceLookups(e.target.checked)}
+                  style={{ marginRight: 8 }}
+                />
+                <span>
+                  <strong>Resolve URLs at apply time via data sources</strong>{" "}
+                  <span style={{ fontSize: 11, color: "#16a34a" }}>(default — recommended)</span>
+                  <span style={styles.fieldHint}>
+                    Self-contained config, no environment-specific UUIDs
+                    baked in. Requires a Waldur provider with the
+                    `future_prices` deserialisation fix (the platform's
+                    fixed provider has it; the upstream `waldur/waldur`
+                    v0.0.8 does not — it will crash on
+                    `waldur_marketplace_offering` lookups).
+                    {" "}Untick this to fall back to the legacy hardcoded-URL
+                    output that works against any provider.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={handleGenerate}
           disabled={loading || selectedTenants.size === 0 || vmCount > maxVms || vmCount < 1}
@@ -376,6 +422,19 @@ const styles: Record<string, React.CSSProperties> = {
   btn: {
     padding: "8px 20px", border: "none", borderRadius: 6,
     background: "#4f8ef7", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+  },
+  disclosure: {
+    background: "none", border: "none", color: "#374151",
+    fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "4px 0",
+    display: "inline-flex", alignItems: "center",
+  },
+  advancedBody: {
+    padding: "10px 12px", background: "#fff",
+    border: "1px solid #e5e7eb", borderRadius: 4, marginTop: 4,
+  },
+  advancedItem: {
+    display: "flex", alignItems: "flex-start", fontSize: 13,
+    cursor: "pointer",
   },
   error: {
     background: "#fef2f2", color: "#dc2626", padding: "8px 12px",

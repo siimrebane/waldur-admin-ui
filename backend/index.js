@@ -734,6 +734,15 @@ app.get("/projects/:uuid/generate-terraform", async (req, res) => {
     .map((s) => s.trim())
     .filter(Boolean);
   const sgFilterActive = selectedSgNames.length > 0 || req.query.security_group_names !== undefined;
+  // Advanced option: when enabled, the generated config resolves the
+  // marketplace offering URL and the OpenStack volume-type URL via
+  // `data` blocks at apply time instead of baking the resolved URLs in
+  // as literal strings. Off by default — the legacy hardcoded-URL
+  // output works against the upstream `waldur/waldur` provider, while
+  // the data-source style requires a provider with the future_prices
+  // deserialisation fix (see fix/future-prices-string-or-number).
+  const useDataSourceLookups = req.query.use_data_source_lookups === "1"
+    || req.query.use_data_source_lookups === "true";
 
   try {
     // 1. Get project info
@@ -905,6 +914,20 @@ data "waldur_openstack_image" "image${tLabel}" {
 
 `;
 
+      // When the user requested data-source-style URL resolution, emit a
+      // marketplace_offering data source for this tenant's instance offering
+      // so the apply-time lookup replaces the hardcoded URL further down.
+      if (useDataSourceLookups) {
+        tf += `data "waldur_marketplace_offering" "offering${tLabel}" {
+  filters = {
+    type       = "OpenStack.Instance"
+    name_exact = "Virtual machine in ${tenant.name}"
+  }
+}
+
+`;
+      }
+
       // Subnet data source
       tf += `data "waldur_openstack_subnet" "subnet${tLabel}" {
   filters = {
@@ -933,6 +956,15 @@ data "waldur_openstack_image" "image${tLabel}" {
           ).join("\n")}\n  ]\n`
         : "";
 
+      // The offering URL line is either a hardcoded literal (legacy mode,
+      // works against the stock waldur/waldur provider) or a reference to
+      // the per-tenant marketplace_offering data source (advanced mode,
+      // requires the future_prices fix in the provider so the data-source
+      // read does not crash on string-typed map values).
+      const offeringLine = useDataSourceLookups
+        ? `data.waldur_marketplace_offering.offering${tLabel}.url`
+        : `"${tenant.offeringUrl}"`;
+
       // Resources: instances
       for (let vi = 0; vi < count; vi++) {
         const vmNum = ai * 10 + vi + 1;
@@ -942,7 +974,7 @@ data "waldur_openstack_image" "image${tLabel}" {
   name    = "${vmPrefix}-${vmNum}"
   project = data.waldur_structure_project.this.url
 
-  offering = "${tenant.offeringUrl}"
+  offering = ${offeringLine}
 
   flavor = data.waldur_openstack_flavor.flavor${tLabel}.url
   image  = data.waldur_openstack_image.image${tLabel}.url
