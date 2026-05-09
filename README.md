@@ -73,4 +73,4 @@ and the platform's roadmap.
 
 ## Licence
 
-To be decided after thesis publication.
+MIT — see [LICENSE](LICENSE).
