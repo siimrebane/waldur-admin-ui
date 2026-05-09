@@ -1,0 +1,16 @@
+{
+  "name": "waldur-admin-backend",
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "uuid": "^10.0.0"
+  }
+}

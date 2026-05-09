@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      WALDUR_API_URL: ${WALDUR_API_URL:-https://minu.etais.ee/api/}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
