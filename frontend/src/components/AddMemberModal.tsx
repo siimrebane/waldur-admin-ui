@@ -13,7 +13,22 @@ export default function AddMemberModal({ projectUuid, onClose }: Props) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
   const [role, setRole] = useState("PROJECT.MEMBER");
+  const [exactUsername, setExactUsername] = useState("");
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const qc = useQueryClient();
+
+  const lookupMutation = useMutation({
+    mutationFn: (username: string): Promise<UserSearchResult> =>
+      api.get(`/users/lookup?username=${encodeURIComponent(username)}`).then((r) => r.data),
+    onSuccess: (u) => {
+      setSelectedUser(u);
+      setSearch(u.full_name || u.email || exactUsername);
+      setLookupError(null);
+    },
+    onError: (err: any) => {
+      setLookupError(err.response?.data?.detail || "Lookup failed");
+    },
+  });
 
   // Debounce search input
   useEffect(() => {
@@ -78,9 +93,31 @@ export default function AddMemberModal({ projectUuid, onClose }: Props) {
 
         {selectedUser && (
           <div style={styles.selectedUser}>
-            Selected: <strong>{selectedUser.full_name || selectedUser.email}</strong>
+            Selected: <strong>{selectedUser.full_name || selectedUser.email || (selectedUser as any).username}</strong>
           </div>
         )}
+
+        <div style={styles.divider}>
+          <span style={styles.dividerText}>or add by exact username</span>
+        </div>
+
+        <div style={styles.lookupRow}>
+          <input
+            style={{ ...styles.input, flex: 1 }}
+            value={exactUsername}
+            onChange={(e) => { setExactUsername(e.target.value); setLookupError(null); }}
+            placeholder="exact Waldur username"
+          />
+          <button
+            style={styles.lookupBtn}
+            type="button"
+            disabled={!exactUsername.trim() || lookupMutation.isPending}
+            onClick={() => lookupMutation.mutate(exactUsername.trim())}
+          >
+            {lookupMutation.isPending ? "Looking up…" : "Find"}
+          </button>
+        </div>
+        {lookupError && <p style={styles.error}>{lookupError}</p>}
 
         <label style={styles.label}>
           Role
@@ -140,6 +177,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 12px", fontSize: 13, color: "#0369a1",
   },
   error: { color: "#dc2626", fontSize: 13 },
+  divider: {
+    display: "flex", alignItems: "center", gap: 10, margin: "4px 0",
+    color: "#9ca3af", fontSize: 12,
+  },
+  dividerText: { whiteSpace: "nowrap" },
+  lookupRow: { display: "flex", gap: 8 },
+  lookupBtn: {
+    padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 6,
+    background: "#f9fafb", fontSize: 13, cursor: "pointer",
+  },
   actions: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 },
   cancelBtn: {
     padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 6,

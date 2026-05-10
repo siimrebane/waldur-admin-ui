@@ -444,6 +444,22 @@ app.get("/users/search", async (req, res) => {
   }
 });
 
+app.get("/users/lookup", async (req, res) => {
+  const s = getSession(req, res);
+  if (!s) return;
+  const username = (req.query.username || "").toString().trim();
+  if (!username) return res.status(400).json({ detail: "username required" });
+  try {
+    const { data } = await waldur(s.waldurToken).get("/users/", { params: { username } });
+    const list = paginated(data);
+    const exact = list.find((u) => (u.username || "").toLowerCase() === username.toLowerCase());
+    if (!exact) return res.status(404).json({ detail: "No user with that exact username" });
+    res.json({ uuid: exact.uuid, full_name: exact.full_name ?? "", email: exact.email ?? "", username: exact.username });
+  } catch (err) {
+    res.status(502).json({ detail: err.response?.data?.detail || "Waldur error" });
+  }
+});
+
 app.get("/roles", (_req, res) => {
   res.json([
     { name: "PROJECT.ADMIN", display_name: "Admin" },
@@ -656,6 +672,17 @@ app.post("/projects/:uuid/security-groups/defaults", async (req, res) => {
 
 // --- Terraform helpers: flavors and images ---
 
+app.get("/ssh-keys", async (req, res) => {
+  const s = getSession(req, res);
+  if (!s) return;
+  try {
+    const { data } = await waldur(s.waldurToken).get("/keys/");
+    res.json(paginated(data).map((k) => ({ uuid: k.uuid, name: k.name })));
+  } catch {
+    res.status(502).json({ detail: "Waldur error" });
+  }
+});
+
 app.get("/projects/:uuid/flavors", async (req, res) => {
   const s = getSession(req, res);
   if (!s) return;
@@ -745,6 +772,11 @@ app.get("/projects/:uuid/generate-terraform", async (req, res) => {
   // including the unfixed upstream `waldur/waldur`.
   const useDataSourceLookups = req.query.use_data_source_lookups === "1"
     || req.query.use_data_source_lookups === "true";
+  // Name of the user's SSH public key as registered in Waldur (under their
+  // profile -> SSH keys). The generated config looks the key up by exact
+  // name. Default preserved as "rsa" for backwards compatibility with the
+  // legacy generator output that hardcoded that value.
+  const sshKeyName = (req.query.ssh_key_name || "rsa").toString();
 
   try {
     // 1. Get project info
@@ -873,7 +905,7 @@ variable "waldur_token" {
 
 variable "ssh_key_name" {
   type    = string
-  default = "rsa"
+  default = "${sshKeyName}"
 }
 
 data "waldur_structure_project" "this" {

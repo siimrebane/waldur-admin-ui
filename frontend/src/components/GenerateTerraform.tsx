@@ -28,6 +28,11 @@ interface SecurityGroup {
   description?: string;
 }
 
+interface SshKey {
+  uuid: string;
+  name: string;
+}
+
 interface Props {
   projectUuid: string;
   tenants: Tenant[];
@@ -48,6 +53,11 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
     enabled: okTenants.length > 0,
   });
 
+  const { data: sshKeys = [] } = useQuery<SshKey[]>({
+    queryKey: ["ssh-keys"],
+    queryFn: () => api.get(`/ssh-keys`).then((r) => r.data),
+  });
+
   const [selectedTenants, setSelectedTenants] = useState<Set<string>>(new Set());
   const [selectedSgNames, setSelectedSgNames] = useState<Set<string>>(new Set());
   const [vmCount, setVmCount] = useState(1);
@@ -55,6 +65,7 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
   const [flavor, setFlavor] = useState("");
   const [image, setImage] = useState("");
   const [volumeSize, setVolumeSize] = useState(20);
+  const [sshKeyName, setSshKeyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -118,6 +129,9 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
   React.useEffect(() => {
     if (images.length > 0 && !image) setImage(images[0].name);
   }, [images]);
+  React.useEffect(() => {
+    if (sshKeys.length > 0 && !sshKeyName) setSshKeyName(sshKeys[0].name);
+  }, [sshKeys]);
 
   const toggleTenant = (uuid: string) => {
     setSelectedTenants((prev) => {
@@ -153,6 +167,7 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
           volume_size: volumeSize * 1024, // GB → MiB for terraform
           tenant_uuids: Array.from(selectedTenants).join(","),
           security_group_names: Array.from(selectedSgNames).join(","),
+          ssh_key_name: sshKeyName,
           use_data_source_lookups: useDataSourceLookups ? "1" : "0",
         },
       });
@@ -322,6 +337,31 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
           </div>
         </div>
 
+        <div style={styles.row}>
+          <div style={styles.field}>
+            <label style={styles.label}>SSH key</label>
+            {sshKeys.length === 0 ? (
+              <span style={styles.fieldHint}>
+                No SSH keys registered on your Waldur profile. Add one at
+                minu.etais.ee → your username → SSH keys.
+              </span>
+            ) : (
+              <select
+                value={sshKeyName}
+                onChange={(e) => setSshKeyName(e.target.value)}
+                style={styles.input}
+              >
+                {sshKeys.map((k) => (
+                  <option key={k.uuid} value={k.name}>{k.name}</option>
+                ))}
+              </select>
+            )}
+            <span style={styles.fieldHint}>
+              The generated config injects this key into every VM via cloud-init.
+            </span>
+          </div>
+        </div>
+
         {/* Advanced options — collapsible */}
         <div style={{ ...styles.section, marginTop: 4 }}>
           <button
@@ -362,7 +402,7 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
 
         <button
           onClick={handleGenerate}
-          disabled={loading || selectedTenants.size === 0 || vmCount > maxVms || vmCount < 1}
+          disabled={loading || selectedTenants.size === 0 || vmCount > maxVms || vmCount < 1 || !sshKeyName}
           style={{ ...styles.btn, opacity: (loading || selectedTenants.size === 0) ? 0.6 : 1 }}
         >
           {loading ? "Generating..." : "Generate"}
