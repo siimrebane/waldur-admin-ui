@@ -38,7 +38,6 @@ export default function ProjectCosts({ projectUuid }: Props) {
     ? ((( current?.price ?? 0) - prevMonth.price) / prevMonth.price) * 100
     : null;
 
-  const maxPrice = Math.max(...months.map((m) => m.price), 0.01);
 
   return (
     <div style={styles.wrapper}>

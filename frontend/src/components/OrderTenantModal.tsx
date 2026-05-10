@@ -204,7 +204,7 @@ export default function OrderTenantModal({ projectUuid, projectName, existingTen
         )}
 
         <div style={styles.actions}>
-          <button style={styles.cancelBtn} onClick={onClose}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={() => onClose()}>Cancel</button>
           <button
             style={styles.submitBtn}
             onClick={() => mutation.mutate()}
