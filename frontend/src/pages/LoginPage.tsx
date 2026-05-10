@@ -36,14 +36,16 @@ export default function LoginPage() {
 
         <label style={styles.label}>
           API Token
-          <textarea
-            style={styles.textarea}
+          <input
+            type="password"
+            style={styles.input}
             value={token}
             onChange={(e) => setToken(e.target.value)}
             placeholder="Paste token here…"
             autoFocus
             required
-            rows={3}
+            autoComplete="current-password"
+            spellCheck={false}
           />
         </label>
 
@@ -73,10 +75,10 @@ const styles: Record<string, React.CSSProperties> = {
   subtitle: { fontSize: 13, color: "#888", textAlign: "center", marginTop: -8, lineHeight: 1.6 },
   hint: { fontSize: 11, color: "#aaa" },
   label: { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 500 },
-  textarea: {
+  input: {
     padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6,
-    fontSize: 13, outline: "none", fontFamily: "monospace", resize: "none",
-    wordBreak: "break-all",
+    fontSize: 13, outline: "none", fontFamily: "monospace",
+    letterSpacing: "0.05em",
   },
   error: { color: "#dc2626", fontSize: 13, textAlign: "center" },
   btn: {
