@@ -735,12 +735,14 @@ app.get("/projects/:uuid/generate-terraform", async (req, res) => {
     .filter(Boolean);
   const sgFilterActive = selectedSgNames.length > 0 || req.query.security_group_names !== undefined;
   // Advanced option: when enabled, the generated config resolves the
-  // marketplace offering URL and the OpenStack volume-type URL via
-  // `data` blocks at apply time instead of baking the resolved URLs in
-  // as literal strings. Off by default — the legacy hardcoded-URL
-  // output works against the upstream `waldur/waldur` provider, while
-  // the data-source style requires a provider with the future_prices
-  // deserialisation fix (see fix/future-prices-string-or-number).
+  // marketplace offering URL via a `data` block at apply time instead
+  // of baking the resolved URL in as a literal. ON by default in the
+  // frontend, since the platform's published provider
+  // (siimrebane/waldur >= 0.2.0, the source emitted in the generated
+  // HCL above) carries the future_prices fix the data-source lookup
+  // depends on. Untick the advanced toggle in the UI to fall back to
+  // the legacy hardcoded-URL output that works against any provider
+  // including the unfixed upstream `waldur/waldur`.
   const useDataSourceLookups = req.query.use_data_source_lookups === "1"
     || req.query.use_data_source_lookups === "true";
 
@@ -847,8 +849,14 @@ terraform {
 
   required_providers {
     waldur = {
-      source  = "waldur/waldur"
-      version = "~> 0.0.8"
+      # Platform fork of the Waldur Terraform provider, published on
+      # the Terraform Registry. Includes the security_groups port-level
+      # cascade, in-place flavour change via change_flavor, and the
+      # FlexibleNumber fix so waldur_marketplace_offering data source
+      # lookups don't crash on string-typed future_prices values.
+      # Source: https://github.com/siimrebane/terraform-provider-waldur
+      source  = "siimrebane/waldur"
+      version = "~> 0.2"
     }
   }
 }
