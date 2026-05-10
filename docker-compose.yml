@@ -3,20 +3,20 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      WALDUR_API_URL: ${WALDUR_API_URL:-https://minu.etais.ee/api/}
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
-      CORS_ORIGINS: '["http://localhost:3000"]'
+    env_file:
+      - ./backend/.env
+    expose:
+      - "8000"
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       - backend
     restart: unless-stopped
