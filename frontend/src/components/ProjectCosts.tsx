@@ -97,12 +97,12 @@ export default function ProjectCosts({ projectUuid }: Props) {
                 width={52}
               />
               <Tooltip
-                formatter={(value: number) => [EURO(value), "Cost"]}
+                formatter={(value: any) => [EURO(Number(value)), "Cost"]}
                 contentStyle={{ borderRadius: 6, border: "1px solid #e9ecef", fontSize: 13 }}
                 cursor={{ fill: "rgba(79,142,247,0.07)" }}
               />
               <Bar dataKey="price" radius={[4, 4, 0, 0]}>
-                {months.map((m, i) => (
+                {months.map((_, i) => (
                   <Cell
                     key={i}
                     fill={i === months.length - 1 ? "#4f8ef7" : "#c7d9f8"}
