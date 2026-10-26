@@ -8,6 +8,9 @@ const LABELS: Record<string, string> = {
   "PROJECT.ADMIN":   "Admin",
   "PROJECT.MANAGER": "Manager",
   "PROJECT.MEMBER":  "Member",
+  "CUSTOMER.OWNER":  "Organisation owner",
+  "CUSTOMER.SUPPORT": "Organisation support",
+  "CUSTOMER.READER": "Organisation reader",
 };
 
 interface Props { role: string; }

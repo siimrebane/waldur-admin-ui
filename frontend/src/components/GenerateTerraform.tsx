@@ -306,13 +306,13 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
             <select value={flavor} onChange={(e) => setFlavor(e.target.value)} style={styles.input}>
               {flavors.map((f) => (
                 <option key={f.name} value={f.name}>
-                  {f.name} — {f.cores} vCPU, {f.ram} MB RAM, {f.disk} GB disk
+                  {f.name} — {f.cores} vCPU, {f.ram / 1024} GB RAM, {f.disk / 1024} GB disk
                 </option>
               ))}
             </select>
             {selectedFlavor && (
               <span style={styles.fieldHint}>
-                {selectedFlavor.cores} vCPU, {selectedFlavor.ram} MB RAM, {selectedFlavor.disk} GB disk
+                {selectedFlavor.cores} vCPU, {selectedFlavor.ram / 1024} GB RAM, {selectedFlavor.disk / 1024} GB disk
               </span>
             )}
           </div>

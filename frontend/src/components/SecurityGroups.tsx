@@ -134,9 +134,11 @@ export default function SecurityGroups({ projectUuid, tenants }: Props) {
   const removeRule = (idx: number) => setNewRules(newRules.filter((_, i) => i !== idx));
 
   const formatRule = (r: Rule) => {
-    if (r.protocol === "icmp") return `ICMP from ${r.cidr}`;
-    const ports = r.from_port === r.to_port ? `${r.from_port}` : `${r.from_port}-${r.to_port}`;
-    return `${r.protocol?.toUpperCase() || "ANY"} ${ports} from ${r.cidr}`;
+    const from = r.cidr || "any address";
+    if (r.protocol === "icmp") return `ICMP from ${from}`;
+    const anyPort = r.from_port == null || r.from_port < 0;
+    const ports = anyPort ? "any port" : r.from_port === r.to_port ? `${r.from_port}` : `${r.from_port}-${r.to_port}`;
+    return `${r.direction} ${r.protocol?.toUpperCase() || "any protocol"} ${ports} from ${from}`;
   };
 
   return (

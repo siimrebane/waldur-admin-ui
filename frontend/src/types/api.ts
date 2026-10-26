@@ -28,6 +28,7 @@ export interface MemberInfo {
   full_name: string;
   email: string;
   role: string;
+  inherited?: boolean;
 }
 
 export interface UserSearchResult {

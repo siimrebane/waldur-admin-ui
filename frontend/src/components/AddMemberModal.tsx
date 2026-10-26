@@ -98,7 +98,7 @@ export default function AddMemberModal({ projectUuid, onClose }: Props) {
         )}
 
         <div style={styles.divider}>
-          <span style={styles.dividerText}>or add by exact username</span>
+          <span style={styles.dividerText}>or add by exact username or e-mail</span>
         </div>
 
         <div style={styles.lookupRow}>
@@ -106,7 +106,7 @@ export default function AddMemberModal({ projectUuid, onClose }: Props) {
             style={{ ...styles.input, flex: 1 }}
             value={exactUsername}
             onChange={(e) => { setExactUsername(e.target.value); setLookupError(null); }}
-            placeholder="exact Waldur username"
+            placeholder="exact Waldur username or e-mail"
           />
           <button
             style={styles.lookupBtn}

@@ -170,14 +170,32 @@ app.get("/projects/:uuid/members", async (req, res) => {
   if (!s) return;
   try {
     const { data } = await waldur(s.waldurToken).get(`/projects/${req.params.uuid}/list_users/`);
-    res.json(
-      paginated(data).map((m) => ({
-        user_uuid: m.user_uuid,
-        full_name: m.user_full_name ?? "",
-        email: m.user_email ?? "",
-        role: m.role_name ?? "",
-      }))
-    );
+    const members = paginated(data).map((m) => ({
+      user_uuid: m.user_uuid,
+      full_name: m.user_full_name ?? "",
+      email: m.user_email ?? "",
+      role: m.role_name ?? "",
+      inherited: false,
+    }));
+    // Organisation-level roles (owner, support, reader) apply to every
+    // project of the organisation; Waldur does not list them as project
+    // members. Show them so a project is not shown as having nobody.
+    try {
+      const { data: p } = await waldur(s.waldurToken).get(`/projects/${req.params.uuid}/`);
+      const { data: orgUsers } = await waldur(s.waldurToken).get(`/customers/${p.customer_uuid}/users/`);
+      for (const u of paginated(orgUsers)) {
+        members.push({
+          user_uuid: u.uuid ?? u.user_uuid,
+          full_name: u.full_name ?? "",
+          email: u.email ?? "",
+          role: u.role_name ?? u.role ?? "",
+          inherited: true,
+        });
+      }
+    } catch {
+      // organisation users are a bonus; the project list alone is still correct
+    }
+    res.json(members);
   } catch {
     res.status(502).json({ detail: "Waldur error" });
   }
@@ -452,8 +470,13 @@ app.get("/users/lookup", async (req, res) => {
   try {
     const { data } = await waldur(s.waldurToken).get("/users/", { params: { username } });
     const list = paginated(data);
-    const exact = list.find((u) => (u.username || "").toLowerCase() === username.toLowerCase());
-    if (!exact) return res.status(404).json({ detail: "No user with that exact username" });
+    let exact = list.find((u) => (u.username || "").toLowerCase() === username.toLowerCase());
+    if (!exact && username.includes("@")) {
+      // ETAIS usernames are MyAccessID identifiers nobody types; the e-mail is.
+      const { data: byEmail } = await waldur(s.waldurToken).get("/users/", { params: { email: username } });
+      exact = paginated(byEmail).find((u) => (u.email || "").toLowerCase() === username.toLowerCase());
+    }
+    if (!exact) return res.status(404).json({ detail: "No user with that exact username or e-mail" });
     res.json({ uuid: exact.uuid, full_name: exact.full_name ?? "", email: exact.email ?? "", username: exact.username });
   } catch (err) {
     res.status(502).json({ detail: err.response?.data?.detail || "Waldur error" });
@@ -1031,6 +1054,10 @@ ${tenant.volumeType ? `  system_volume_type = "${tenant.volumeType}"` : ""}
   }]
 ${sgBlock}
   ssh_public_key = data.waldur_core_ssh_public_key.this.url
+
+  # Provider 0.2.x plans a security_groups change on every refresh even when
+  # nothing changed; ignore it so plan stays clean after apply.
+  lifecycle { ignore_changes = [security_groups] }
 }
 
 `;

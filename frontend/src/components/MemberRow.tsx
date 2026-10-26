@@ -27,6 +27,9 @@ export default function MemberRow({ member, projectUuid }: Props) {
       </td>
       <td style={styles.cell}><RoleBadge role={member.role} /></td>
       <td style={{ ...styles.cell, textAlign: "right" }}>
+        {member.inherited ? (
+          <span style={styles.inherited} title="Role on the organisation; applies to all of its projects">organisation</span>
+        ) : (
         <button
           style={styles.removeBtn}
           onClick={() => { if (confirm(`Remove ${member.full_name || member.email}?`)) removeMutation.mutate(); }}
@@ -34,6 +37,7 @@ export default function MemberRow({ member, projectUuid }: Props) {
         >
           Remove
         </button>
+        )}
       </td>
     </tr>
   );
@@ -44,6 +48,7 @@ const styles: Record<string, React.CSSProperties> = {
   cell: { padding: "12px 16px", verticalAlign: "middle" },
   name: { fontWeight: 500, marginBottom: 2 },
   email: { fontSize: 12, color: "#888" },
+  inherited: { fontSize: 12, color: "#9ca3af" },
   removeBtn: {
     background: "transparent",
     border: "1px solid #fca5a5",
