@@ -237,7 +237,6 @@ app.get("/projects/:uuid/tenants", async (req, res) => {
       params: { project_uuid: req.params.uuid },
     });
     const tenants = paginated(data);
-    if (tenants.length > 0) console.log("RAW QUOTAS:", JSON.stringify(tenants[0].quotas, null, 2));
     res.json(
       tenants.map((t) => ({
         uuid: t.uuid,
@@ -889,6 +888,40 @@ app.get("/projects/:uuid/generate-terraform", async (req, res) => {
       return res.status(400).json({
         detail: `Not enough tenants: need ${Math.ceil(vmCount / 10)} tenants for ${vmCount} VMs, but only ${tenants.length} exist.`,
       });
+    }
+
+    // 4b. Refuse a configuration that Waldur would reject on apply: every
+    // tenant must have enough free storage, vCPU and RAM quota for the VMs
+    // assigned to it. Quota values are in MB for ram/storage, as Waldur
+    // reports them; volumeSize is MiB too.
+    for (const a of assignments) {
+      const tenant = tenants.find((t) => t.uuid === a.tenant.uuid);
+      const q = {};
+      for (const x of tenant.quotas || []) q[x.name] = { limit: x.limit ?? 0, usage: x.usage ?? 0 };
+      const free = (name) => (q[name] ? q[name].limit - q[name].usage : Infinity);
+      let cores = 0, ram = 0;
+      try {
+        const { data: fl } = await waldur(s.waldurToken).get("/openstack-flavors/", {
+          params: { tenant_uuid: tenant.uuid, name_exact: flavorName },
+        });
+        const f = paginated(fl)[0];
+        if (f) { cores = f.cores ?? 0; ram = f.ram ?? 0; }
+      } catch { /* flavour unknown here: only the storage check applies */ }
+      const problems = [];
+      if (a.count * volumeSize > free("storage")) {
+        problems.push(`storage: ${a.count} × ${Math.round(volumeSize / 1024)} GB asked, ${Math.floor(free("storage") / 1024)} GB free`);
+      }
+      if (cores && a.count * cores > free("vcpu")) {
+        problems.push(`vCPU: ${a.count} × ${cores} asked, ${free("vcpu")} free`);
+      }
+      if (ram && a.count * ram > free("ram")) {
+        problems.push(`RAM: ${a.count} × ${Math.round(ram / 1024)} GB asked, ${Math.floor(free("ram") / 1024)} GB free`);
+      }
+      if (problems.length > 0) {
+        return res.status(400).json({
+          detail: `Tenant ${tenant.name} does not have the quota for this configuration (${problems.join("; ")}). Lower the volume size, the VM count or the flavour, or raise the tenant's quota.`,
+        });
+      }
     }
 
     // 5. Generate terraform

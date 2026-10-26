@@ -6,6 +6,7 @@ interface Tenant {
   uuid: string;
   name: string;
   state: string;
+  quotas?: { name: string; limit: number; usage: number }[];
 }
 
 interface Flavor {
@@ -152,6 +153,36 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
 
   const maxVms = selectedTenants.size * 10;
   const tenantsNeeded = Math.ceil(vmCount / 10);
+
+  // Storage check against each selected tenant's quota, in the order the
+  // backend assigns VMs (up to 10 per tenant). Waldur reports storage in MB.
+  const selectedFlavorForQuota = flavors.find((f) => f.name === flavor);
+  const quotaProblems: string[] = [];
+  let remainingVms = vmCount;
+  for (const uuid of Array.from(selectedTenants)) {
+    if (remainingVms <= 0) break;
+    const t = tenants.find((x) => x.uuid === uuid);
+    const count = Math.min(remainingVms, 10);
+    remainingVms -= count;
+    if (!t?.quotas) continue;
+    const free = (name: string) => {
+      const q = t.quotas!.find((x) => x.name === name);
+      return q ? q.limit - q.usage : Infinity;
+    };
+    const freeGb = Math.floor(free("storage") / 1024);
+    if (count * volumeSize > free("storage")) {
+      quotaProblems.push(`${t.name}: ${count} × ${volumeSize} GB of volumes, ${freeGb} GB of storage free`);
+    }
+    if (selectedFlavorForQuota) {
+      const vcpuName = t.quotas.some((x) => x.name === "vcpu") ? "vcpu" : "cores";
+      if (count * selectedFlavorForQuota.cores > free(vcpuName)) {
+        quotaProblems.push(`${t.name}: ${count} × ${selectedFlavorForQuota.cores} vCPU, ${free(vcpuName)} free`);
+      }
+      if (count * selectedFlavorForQuota.ram > free("ram")) {
+        quotaProblems.push(`${t.name}: ${count} × ${selectedFlavorForQuota.ram / 1024} GB RAM, ${Math.floor(free("ram") / 1024)} GB free`);
+      }
+    }
+  }
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -334,6 +365,11 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
               onChange={(e) => setVolumeSize(parseInt(e.target.value) || 20)}
               style={styles.input}
             />
+            {quotaProblems.length > 0 && (
+              <span style={{ ...styles.fieldHint, color: "#b91c1c" }}>
+                Over the tenant quota, Waldur would refuse the order: {quotaProblems.join("; ")}
+              </span>
+            )}
           </div>
         </div>
 
@@ -402,7 +438,7 @@ export default function GenerateTerraform({ projectUuid, tenants }: Props) {
 
         <button
           onClick={handleGenerate}
-          disabled={loading || selectedTenants.size === 0 || vmCount > maxVms || vmCount < 1 || !sshKeyName}
+          disabled={loading || selectedTenants.size === 0 || vmCount > maxVms || vmCount < 1 || !sshKeyName || quotaProblems.length > 0}
           style={{ ...styles.btn, opacity: (loading || selectedTenants.size === 0) ? 0.6 : 1 }}
         >
           {loading ? "Generating..." : "Generate"}
